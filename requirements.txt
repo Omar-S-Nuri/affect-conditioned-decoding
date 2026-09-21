@@ -1,0 +1,22 @@
+# =====================================================================
+# Core Data Processing & Machine Learning (Limbisches System)
+# =====================================================================
+pandas
+numpy
+scikit-learn
+
+# =====================================================================
+# Deep Learning & Sprachmodell (Neokortex / Qwen-Training)
+# =====================================================================
+torch
+transformers
+datasets
+accelerate
+
+# =====================================================================
+# API-Schnittstellen (Evolutionäre Erweiterung)
+# =====================================================================
+google-genai
+
+
+python-dotenv
