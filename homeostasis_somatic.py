@@ -1,4 +1,14 @@
 # homeostasis_somatic.py
+# =====================================================================
+# TECHNICAL DESIGN NOTE (MANUSCRIPT ALIGNMENT):
+# The terminology used in this module (e.g., 'BiomechanicalHomeostasis')
+# is utilized metaphorically to maintain structural alignment with the
+# architectural concept described in the manuscript. Mechanistically,
+# this class acts as a stateful, token-dependent sequence constraint
+# tracker that modulates sampling hyper-parameters dynamically based 
+# on rolling execution costs and contextual affect metrics.
+# =====================================================================
+
 import numpy as np
 
 class BiomechanicalHomeostasis:
