@@ -101,10 +101,6 @@ for i in range(0, len(df_todo), BATCH_SIZE):
     try:
         response = client.models.generate_content(
             model='gemini-3.1-flash-lite',
-            ##model='gemini-2.5-flash-lite',
-            #model='gemini-2.0-flash',  # <-- VORHER STAND HIER 2.5 ODER 3.6
-            ##model='gemini-2.5-flash', ##model='gemini-1.5-flash', 
-            # ## model='gemini-3.6-flash',  # <-- HIER VON 2.5 AUF 3.6 ÄNDERN ## model='gemini-2.5-flash',
             contents=formatted_prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
