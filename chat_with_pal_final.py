@@ -86,7 +86,8 @@ while True:
         final_values = body.modulate_pal_vector(pal_raw_values, stimmungs_vektor)
         hippocampus.push_experience(user_input, final_values)
 
-        print(f"🔋 VITALWERTE: Energie: {body.energy * 100:.1f}% | Gedächtnispuffer-Tiefe: {len(hippocampus.episodic_buffer)} Reize")
+        print(f"🔋 VITALWERTE: Energie: {body.energy * 100:.1f}% | Affective Decay Buffering Active: {len(hippocampus.episodic_buffer)} Reize")
+
         pal_vector_string = f"[PAL_7D | V:{final_values[0]:.2f} | A:{final_values[1]:.2f} | D:{final_values[2]:.2f} | " \
                             f"DNG:{final_values[3]:.2f} | RES:{final_values[4]:.2f} | SOC:{final_values[5]:.2f} | GOL:{final_values[6]:.2f}]"
         print(f"📊 Modulierter Satz-Vektor: {pal_vector_string}")
