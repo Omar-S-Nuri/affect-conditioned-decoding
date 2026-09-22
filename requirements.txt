@@ -4,6 +4,7 @@
 pandas
 numpy
 scikit-learn
+scipy
 
 # =====================================================================
 # Deep Learning & Sprachmodell (Neokortex / Qwen-Training)
@@ -12,11 +13,11 @@ torch
 transformers
 datasets
 accelerate
+sentence-transformers
 
 # =====================================================================
-# API-Schnittstellen (Evolutionäre Erweiterung)
+# API-Schnittstellen & Lokale Inferenz (Evolutionäre Erweiterung)
 # =====================================================================
 google-genai
-
-
+ollama
 python-dotenv
