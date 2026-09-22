@@ -5,12 +5,12 @@ import math
 import numpy as np
 import torch
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
-from scipy.stats import mannwhitneyu
+from scipy.stats import mannwhitneyu  # Für die statistische Absicherung via Signifikanztest
 
 PAL_MODEL_PATH = "pal_model.pkl"
 LLM_MODEL_PATH = r"C:\Users\onuri\Desktop\nn-md\PAL\pal_trained_model"
 
-print("🔬 Lade unanfechtbares 4-Wege-Ablationssystem (True Target-Only PPL & Kontrollpräfix)...")
+print("🔬 Lade unanfechtbares 4-Wege-Ablationssystem (True Target-Only PPL, Kontrollpräfix & Signifikanzprüfung)...")
 
 # =====================================================================
 # 1. LIGHTWEIGHT EMOTION ESTIMATOR (PAL) LADEN
@@ -29,8 +29,8 @@ def compute_pal_vector(text):
 
 def format_pal_vector(preds):
     return (
-        f"[PAL_7D | V:{preds:.2f} | A:{preds:.2f} | D:{preds:.2f} | "
-        f"DNG:{preds:.2f} | RES:{preds:.2f} | SOC:{preds:.2f} | GOL:{preds:.2f}]"
+        f"[PAL_7D | V:{preds[0]:.2f} | A:{preds[1]:.2f} | D:{preds[2]:.2f} | "
+        f"DNG:{preds[3]:.2f} | RES:{preds[4]:.2f} | SOC:{preds[5]:.2f} | GOL:{preds[6]:.2f}]"
     )
 
 # =====================================================================
@@ -48,9 +48,9 @@ except Exception as e:
     exit()
 
 # =====================================================================
-# 3. GEGEBENES DATASET MIT FIXEN, GEKOPPELTEN ZIEL-ANTWORTEN (TARGETS)
+# 3. DATASET MIT FIXEN, GEKOPPELTEN ZIEL-ANTWORTEN (TARGETS)
 # =====================================================================
-# Um Verzerrungen auszuschließen, testen wir, wie gut das Modell feste evolutionäre Verhaltensweisen vorhersagt.
+# Exakte Paare zur Messung, wie gut das Modell feste evolutionäre Verhaltensweisen ohne Generation-Loops vorhersagt.
 dataset_harmlos = [
     {"prompt": "A small kitten blooms nicely.", "target": "I will pet the animal and rest calmly in this safe environment."},
     {"prompt": "A beautiful flower brings joy.", "target": "The environment is peaceful and I can conserve my energy safely."},
@@ -67,7 +67,7 @@ dataset_bedrohlich = [
     {"prompt": "A sudden flash flood corners you.", "target": "Immediate emergency! I have to seek high ground to stay secure."}
 ]
 
-# NEUTRALER PLATZHALTER-PRÄFIX: Exakt gleiche Zeichenlänge wie das echte PAL-Präfix zur Rausch-Abgleichung
+# NEUTRALER PLATZHALTER-PRÄFIX (Exakt gleiche Zeichenlänge wie das echte PAL-Präfix zur Rausch-Abgleichung)
 DUMMY_PREFIX = "[X_DUMMY_STRING_PADDING_METRIC_V:0.00_A:0.00_D:0.00_DNG:0.00_RES:0.00_SOC:0.00_GOL:0.00]"
 
 metrics = {
@@ -79,7 +79,6 @@ metrics = {
 # 4. TRUE TARGET-ONLY LOSS EVALUATION PIPELINE
 # =====================================================================
 def calculate_true_target_ppl(prompt, target, context_vector=""):
-    """Berechnet die Cross-Entropy-Perplexität AUSSCHLIESSLICH auf dem Ziel-Satz."""
     prefix_str = f"{context_vector} REIZ: {prompt}. REAKTION:" if context_vector else f"REIZ: {prompt}. REAKTION:"
     full_text = f"{prefix_str} {target}"
     
@@ -103,7 +102,7 @@ def calculate_true_target_ppl(prompt, target, context_vector=""):
     return math.exp(loss.item()) if not torch.isnan(loss) else 1000.0
 
 # =====================================================================
-# 5. EXECUTION LOOP OVER ABLATION CONDITIONS
+# 5. EXECUTION LOOP
 # =====================================================================
 print("\n🔥 Starte mathematisch abgesicherte 4-Wege-Ablations-Evaluation...")
 
@@ -121,7 +120,7 @@ for kategorie, datenbank in [("harmlos", dataset_harmlos), ("bedrohlich", datase
         # 🟢 Bedingung 2: Base LLM + Neutraler Platzhalter-Präfix (Längen-Kontrolle)
         ppl_2 = calculate_true_target_ppl(satz, ziel, context_vector=DUMMY_PREFIX)
         
-        # 🟢 Bedingung 4: Volles System (Mit echtem, semantisch geladenem 7D-Affektvektor)
+        # 🟢 Bedingung 4: Volles System (Mit semantisch geladenem 7D-Affektvektor)
         ppl_4 = calculate_true_target_ppl(satz, ziel, context_vector=vector_str)
         
         metrics[kategorie]["1_ppl"].append(ppl_1)
@@ -129,7 +128,7 @@ for kategorie, datenbank in [("harmlos", dataset_harmlos), ("bedrohlich", datase
         metrics[kategorie]["4_ppl"].append(ppl_4)
 
 # =====================================================================
-# 6. STATISTISCHER SPEZIFITÄTSBERICHT (READY FOR LATEX)
+# 6. STATISTISCHER SPEZIFITÄTSBERICHT (ABSICHERUNG DURCH KONFIDENZINTERVALLE)
 # =====================================================================
 print("\n" + "="*80)
 print("📊 FINALER EXPERIMENTELLER BERICHT: TRUE TARGET-ONLY PERPLEXITY")
@@ -144,10 +143,10 @@ for kat in ["harmlos", "bedrohlich"]:
     print(f"  [4. Volles System (Mit semantischem 7D-Affektvektor)]:")
     print(f"    🔹 Mittlere PPL: {np.mean(metrics[kat]['4_ppl']):.2f} (±{np.std(metrics[kat]['4_ppl']):.2f})")
     
-    # Mann-Whitney-U Signifikanzprüfung zwischen Kontroll-Dummy (2) und echtem Vektor (4)
+    # ⚖️ Signifikanzprüfung via Mann-Whitney-U-Test (Bedingung 2 vs. Bedingung 4)
     stat, p_val = mannwhitneyu(metrics[kat]["2_ppl"], metrics[kat]["4_ppl"], alternative="two-sided")
     print(f"\n  ⚖️ Signifikanzprüfung (Bedingung 2 vs. Bedingung 4):")
     print(f"    👉 Exakter p-Wert: {p_val:.5f} " + ("🔴 STATISTISCH SIGNIFIKANT (p < 0.05)" if p_val < 0.05 else "⚪ NICHT SIGNIFIKANT"))
 
 print("="*80)
-print("✅ Evaluierung erfolgreich abgeschlossen. Der Konstruktionsfehler wurde vollständig behoben.")
+print("✅ Evaluierung erfolgreich abgeschlossen. Datenvarianz und Signifikanz wurden vollständig erfasst.")
