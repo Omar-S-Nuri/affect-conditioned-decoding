@@ -18,7 +18,7 @@ if not API_KEY:
 # =====================================================================
 # 1. INITIALISIERUNG & PROGRESS-CHECK (KORRIGIERT)
 # =====================================================================
-## API_KEY = "AIzaSyCTKxEeBkRJHWvM63twu2EANORFDtEI4g8" # Ihr Key bleibt hier stehen
+
 
 client = genai.Client(api_key=API_KEY)
 
