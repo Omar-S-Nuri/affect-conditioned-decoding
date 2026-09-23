@@ -161,7 +161,7 @@ The evaluation utilized a \texttt{Target-Only} perplexity methodology, where pro
 \end{table*}
 
 \subsection{Causal Semantic Steering vs. Sampling Artifacts}
-As documented in Table~\label{tab:ablation_results}, the multi-stage ablation study uncovers a fundamental empirical hazard inherent to the evaluation of constrained decoding frameworks. The drastic collapse of cross-entropy perplexity inside Conditions 3 and 4 under high-stress configurations ($PPL \sim 3$) must not be misinterpreted as a sign of clean cognitive alignment.
+As documented in Table~\ref{tab:ablation_results}, the multi-stage ablation study uncovers a fundamental empirical hazard inherent to the evaluation of constrained decoding frameworks. The drastic collapse of cross-entropy perplexity inside Conditions 3 and 4 under high-stress configurations ($PPL \sim 3$) must not be misinterpreted as a sign of clean cognitive alignment.
 
 Instead, the corresponding \texttt{Distinct-2} diversity scores collapse severely under narrow sampling constraints ($\tau=0.25$, $k=15$), dropping down to $14.5\%$ (\texttt{3\_hyperparameter\_baseline}). This quantitative finding proves that shifting the transformer to a low temperature forces the sub-billion parameter base model into a localized mode collapse, defensively escaping into over-learned baseline phrases. Consequently, low perplexity values are primarily mathematical artifacts of the narrow token selection pool, as the model is structurally incapable of encountering surprising paths within its own highly deterministic repetitions.
 
