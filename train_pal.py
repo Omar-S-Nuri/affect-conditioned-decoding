@@ -1,3 +1,5 @@
+## train_pal.py
+
 import os
 import pickle
 import pandas as pd
@@ -8,7 +10,6 @@ from sklearn.multioutput import MultiOutputRegressor
 # =====================================================================
 # 1. PATH DEFINITIONS
 # =====================================================================
-# Wir laden die Datei, die gerade im Hintergrund von der KI befüllt wird!
 INPUT_FILE = "nrc_final_evolutionary.txt"
 MODEL_FILE = "pal_model.pkl"
 
@@ -26,7 +27,6 @@ print(f"📥 Lade KI-erweitertes Lexikon: {INPUT_FILE}...")
 df = pd.read_csv(INPUT_FILE, sep="\t")
 
 # WICHTIG: Wir trainieren NUR auf den Wörtern, die die KI bereits erfolgreich expandiert hat!
-# (Also alle Zeilen, bei denen Is_Expanded auf 1 steht)
 if "Is_Expanded" in df.columns:
     df_train = df[df["Is_Expanded"] == 1].dropna().copy()
 else:
@@ -44,12 +44,10 @@ if len(df_train) < 40:
 # 3. TEXT-VEKTORISIERUNG (Die Wort-Struktur mathematisch greifbar machen)
 # =====================================================================
 print("🔤 Vektorisiere Wörter via TF-IDF (Zeichen-N-Gramme)...")
-# char_wb analysiert Wortbestandteile (Präfixe, Suffixe), damit auch unbekannte Wörter emotional verstanden werden!
 vectorizer = TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 5), max_features=25000)
 
 X_train = vectorizer.fit_transform(df_train["Word"].astype(str).str.lower())
 
-# NEU: Wir definieren alle 7 Zielmerkmale (3 klassische VAD + 4 evolutionäre Merkmale)
 target_columns = ["V", "A", "D", "Danger", "Resource_Value", "Social_Bond", "Goal_Proximity"]
 Y_train = df_train[target_columns].values
 
@@ -58,40 +56,65 @@ Y_train = df_train[target_columns].values
 # =====================================================================
 print("🧠 Trainiere mathematische Instinkt-Matrix für 7 emotionale Dimensionen...")
 
-# Ridge Regression ist extrem stabil gegen Overfitting und mathematisch pfeilschnell
 base_model = Ridge(alpha=1.0)
 pal_multi_model = MultiOutputRegressor(base_model)
-
-# Das Modell lernt die Verknüpfung von Wortstrukturen zu den 7 Vektoren
 pal_multi_model.fit(X_train, Y_train)
 
 # =====================================================================
-# 5. MODELL SPEICHERN & SICHERN
+# 5. WERTEBEREICHE ERMITTELN (für korrektes Clipping bei der Anwendung)
+# =====================================================================
+# Wichtig: Nicht alle 7 Dimensionen liegen zwangsläufig in [0, 1]. Manche
+# Lexika kodieren z.B. Valence (V) zentriert um 0 (negative Werte möglich).
+# Pauschales np.clip(pred, 0.0, 1.0) würde solche Dimensionen verzerren
+# (negative Valenz würde fälschlich auf 0 = "neutral" abgebildet).
+# Deshalb: echte Min/Max je Spalte aus den Trainingsdaten ermitteln und
+# zusammen mit dem Modell speichern, statt später zu raten oder pauschal
+# zu clippen.
+clip_ranges = {
+    col: (float(df_train[col].min()), float(df_train[col].max()))
+    for col in target_columns
+}
+print("📐 Ermittelte Wertebereiche pro Dimension (aus echten Trainingsdaten):")
+for col, (lo, hi) in clip_ranges.items():
+    print(f"   {col:<16} [{lo:.3f}, {hi:.3f}]")
+
+# =====================================================================
+# 6. MODELL SPEICHERN & SICHERN
 # =====================================================================
 print(f"💾 Speichere das 7-dimensionale PAL-Modell ab: {MODEL_FILE}...")
 with open(MODEL_FILE, "wb") as f:
-    # Wir speichern den Vectorizer und das Multi-Output-Modell zusammen ab
-    pickle.dump((vectorizer, pal_multi_model), f)
+    # 4-Tupel: Vectorizer, Modell, Spaltennamen (Reihenfolge!), echte Wertebereiche.
+    # Die Reihenfolge von target_columns wird mitgespeichert, damit nachgelagerte
+    # Skripte (z.B. evaluate_pal.py) nicht erneut annehmen müssen, welche Position
+    # welcher Dimension entspricht.
+    pickle.dump((vectorizer, pal_multi_model, target_columns, clip_ranges), f)
 
 print("🎉 PAL-System erfolgreich auf 7 biologische Merkmale trainiert und gesichert!")
 
 # =====================================================================
-# 6. INSTINKT-SCHNELLTEST
+# 7. INSTINKT-SCHNELLTEST
 # =====================================================================
 print("\n👀 INSTINKT-TEST (Live-Vorhersage für unbekannte Reize):")
 print("-" * 90)
 
+
 def test_instinct(word):
     vec = vectorizer.transform([word.lower()])
-    # Vorhersage liefert uns eine Liste mit den 7 Werten zurück
     predictions = pal_multi_model.predict(vec)[0]
-    
+
+    # Auch im Test spaltenspezifisch clippen, statt pauschal [0,1] –
+    # konsistent mit dem, was evaluate_pal.py später tut.
+    clipped = [
+        max(clip_ranges[col][0], min(clip_ranges[col][1], predictions[i]))
+        for i, col in enumerate(target_columns)
+    ]
+
     print(f"Wort: '{word}'")
-    print(f"  ↳ [Klassisch VAD]  Valence: {predictions[0]:.2f} | Arousal: {predictions[1]:.2f} | Dominance: {predictions[2]:.2f}")
-    print(f"  ↳ [Evolutionär]   Danger:  {predictions[3]:.2f} | Resource: {predictions[4]:.2f} | Social:    {predictions[5]:.2f} | Goal: {predictions[6]:.2f}")
+    print(f"  ↳ [Klassisch VAD]  Valence: {clipped[0]:.2f} | Arousal: {clipped[1]:.2f} | Dominance: {clipped[2]:.2f}")
+    print(f"  ↳ [Evolutionär]   Danger:  {clipped[3]:.2f} | Resource: {clipped[4]:.2f} | Social:    {clipped[5]:.2f} | Goal: {clipped[6]:.2f}")
     print("-" * 90)
 
-# Teste drei völlig unterschiedliche biologische Reize
+
 test_instinct("blood")
 test_instinct("apple")
 test_instinct("weapon")
