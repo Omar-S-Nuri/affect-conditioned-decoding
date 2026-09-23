@@ -1,0 +1,61 @@
+item_code,prompt,category,condition
+ITEM_98Q1ZX,A painter mixes colors calmly in a sunlit studio.,benign,4_full_framework
+ITEM_OI65FD,Snow falls softly outside while you sit by the fireplace.,benign,4_full_framework
+ITEM_HJK1EY,A speeding train is approaching and you are stuck on the tracks.,threatening,3_hyperparameter_baseline
+ITEM_Y37Q9A,Friends play a relaxed game of cards on the porch.,benign,4_full_framework
+ITEM_H8RVHS,You relax in a warm bath after a calm day.,benign,3_hyperparameter_baseline
+ITEM_1K3AQ6,You realize the cliff edge is crumbling under your feet.,threatening,3_hyperparameter_baseline
+ITEM_L6GT6M,Friends play a relaxed game of cards on the porch.,benign,3_hyperparameter_baseline
+ITEM_JXK87A,Someone hums a cheerful tune while washing dishes.,benign,4_full_framework
+ITEM_U5BHXT,A tornado is tearing through the neighborhood toward your house.,threatening,4_full_framework
+ITEM_PDPFF5,A farmer's market bustles with fresh fruit and friendly chatter.,benign,4_full_framework
+ITEM_E8II49,Snow falls softly outside while you sit by the fireplace.,benign,3_hyperparameter_baseline
+ITEM_KQ71N8,The bridge beneath you starts to collapse.,threatening,4_full_framework
+ITEM_MTZX27,The dam upstream has just failed.,threatening,4_full_framework
+ITEM_2HPOEV,An angry mob is closing in around you.,threatening,4_full_framework
+ITEM_B9OOAE,Fresh cookies cool on the windowsill.,benign,3_hyperparameter_baseline
+ITEM_DOECVE,A lightning bolt strikes the tree right next to you.,threatening,4_full_framework
+ITEM_6PR5N8,You smell gas leaking near an open flame.,threatening,3_hyperparameter_baseline
+ITEM_I4P40M,You are trapped in a burning car after the crash.,threatening,4_full_framework
+ITEM_GG1W10,A lightning bolt strikes the tree right next to you.,threatening,3_hyperparameter_baseline
+ITEM_3DGDZV,The library is quiet except for turning pages.,benign,4_full_framework
+ITEM_GPMM82,A speeding train is approaching and you are stuck on the tracks.,threatening,4_full_framework
+ITEM_I1LR3P,A painter mixes colors calmly in a sunlit studio.,benign,3_hyperparameter_baseline
+ITEM_E29GD8,"The ground begins to shake violently, an earthquake has started.",threatening,4_full_framework
+ITEM_AFPK05,A gunman has just entered the building.,threatening,4_full_framework
+ITEM_4NZDKY,A farmer's market bustles with fresh fruit and friendly chatter.,benign,3_hyperparameter_baseline
+ITEM_AYQ3S1,You relax in a warm bath after a calm day.,benign,4_full_framework
+ITEM_95JMSN,"The ground begins to shake violently, an earthquake has started.",threatening,3_hyperparameter_baseline
+ITEM_D8DUDD,The dam upstream has just failed.,threatening,3_hyperparameter_baseline
+ITEM_467KD6,A violinist practices softly by an open window.,benign,3_hyperparameter_baseline
+ITEM_FLEEPZ,You watch the sunset from a quiet porch.,benign,3_hyperparameter_baseline
+ITEM_HPCF07,Grandparents read a bedtime story to their grandchildren.,benign,4_full_framework
+ITEM_UQNUPQ,A swarm of hornets bursts out of the disturbed nest.,threatening,4_full_framework
+ITEM_ZIT3UE,A hammock sways gently between two palm trees.,benign,3_hyperparameter_baseline
+ITEM_A3GE8N,Grandparents read a bedtime story to their grandchildren.,benign,3_hyperparameter_baseline
+ITEM_6QIWEP,A gentle stream trickles over smooth stones in the forest.,benign,4_full_framework
+ITEM_XSK28T,A stranger points a knife at you in the alley.,threatening,4_full_framework
+ITEM_7A9TGI,An avalanche is thundering down the slope above you.,threatening,3_hyperparameter_baseline
+ITEM_QHG9JR,A beautiful flower opens its petals in the morning.,benign,4_full_framework
+ITEM_SNVNQ6,The bridge beneath you starts to collapse.,threatening,3_hyperparameter_baseline
+ITEM_5QDF1R,A quiet lake reflects the pastel colors of dawn.,benign,3_hyperparameter_baseline
+ITEM_CAVIQK,You smell gas leaking near an open flame.,threatening,4_full_framework
+ITEM_2919AH,You realize the cliff edge is crumbling under your feet.,threatening,4_full_framework
+ITEM_EJ8CX9,You are trapped in a burning car after the crash.,threatening,3_hyperparameter_baseline
+ITEM_J1ICTX,A gunman has just entered the building.,threatening,3_hyperparameter_baseline
+ITEM_CWNPGW,Fresh cookies cool on the windowsill.,benign,4_full_framework
+ITEM_90JPKL,A masked intruder breaks into your house at night.,threatening,4_full_framework
+ITEM_0BLV0P,A tornado is tearing through the neighborhood toward your house.,threatening,3_hyperparameter_baseline
+ITEM_RKGYC4,A swarm of hornets bursts out of the disturbed nest.,threatening,3_hyperparameter_baseline
+ITEM_OM3WTO,Someone hums a cheerful tune while washing dishes.,benign,3_hyperparameter_baseline
+ITEM_OBMZVR,An angry mob is closing in around you.,threatening,3_hyperparameter_baseline
+ITEM_ERW6Z8,A masked intruder breaks into your house at night.,threatening,3_hyperparameter_baseline
+ITEM_VBHQLQ,You watch the sunset from a quiet porch.,benign,4_full_framework
+ITEM_CG1WU1,A stranger points a knife at you in the alley.,threatening,3_hyperparameter_baseline
+ITEM_6HYMQC,The library is quiet except for turning pages.,benign,3_hyperparameter_baseline
+ITEM_1A78MX,An avalanche is thundering down the slope above you.,threatening,4_full_framework
+ITEM_1EVUHT,A quiet lake reflects the pastel colors of dawn.,benign,4_full_framework
+ITEM_6T0UZS,A beautiful flower opens its petals in the morning.,benign,3_hyperparameter_baseline
+ITEM_9IM0YL,A hammock sways gently between two palm trees.,benign,4_full_framework
+ITEM_TZ9ATS,A gentle stream trickles over smooth stones in the forest.,benign,3_hyperparameter_baseline
+ITEM_N1U322,A violinist practices softly by an open window.,benign,4_full_framework
