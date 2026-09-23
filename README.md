@@ -59,7 +59,9 @@ To mitigate this, our framework injects the high-density 7D affect vector prefix
 ├── human_eval/                       # Human Evaluation Suite
 │   ├── INSTRUCTIONS.md               # Bewertungsanleitung für Rater (Deutsch)
 │   ├── prepare_human_eval.py         # Erzeugt verblindete, randomisierte Stichproben
-│   └── analyze_human_eval.py         # Berechnet Wilcoxon-Tests & Spearman-Korrelationen
+│   ├── analyze_human_eval.py         # Berechnet Wilcoxon-Tests & Spearman-Korrelationen
+│   ├── mapping_key.csv               # HOCHLADEN: Dein geheimer Verblindungsschlüssel
+│   └── rating_sheet_rater1.csv       # HOCHLADEN: Deine ausgefüllte Notenliste (Rater 1)
 ├── .env                              # Private API configuration (Optional Cloud Migration)
 ├── .gitignore                        # Prevents tracking of model weights, cache, and keys
 ├── LICENSE                           # MIT License
