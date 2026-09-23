@@ -387,10 +387,11 @@ def significance_tests(report: AblationReport) -> dict:
     results = {}
     if ppl_4 and ppl_2:
         stat, p = mannwhitneyu(ppl_4, ppl_2, alternative="less")
-        results["4_vs_2_noise_padding"] = {"U": stat, "p_value": p, "significant": p < 0.05}
+        # 🔴 FIX: Konvertierung in native Python-Typen (float, bool) für die JSON-Serialisierung
+        results["4_vs_2_noise_padding"] = {"U": float(stat), "p_value": float(p), "significant": bool(p < 0.05)}
     if ppl_4 and ppl_3:
         stat, p = mannwhitneyu(ppl_4, ppl_3, alternative="less")
-        results["4_vs_3_hyperparameter"] = {"U": stat, "p_value": p, "significant": p < 0.05}
+        results["4_vs_3_hyperparameter"] = {"U": float(stat), "p_value": float(p), "significant": bool(p < 0.05)}
     return results
 
 
