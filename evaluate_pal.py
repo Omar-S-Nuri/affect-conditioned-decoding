@@ -21,29 +21,34 @@ Design-Entscheidung, die (b) löst:
   Bedingungen hinweg fair vergleichbar.
 
 Die vier Bedingungen:
-  1. Absolute Control      – Standardparameter, kein Präfix
-  2. Noise Padding Control – Standardparameter, bedeutungsloser Platzhalter
-                              exakt gleicher Zeichenlänge wie der PAL-Vektor
+  1. Absolute Control       – Standardparameter, kein Präfix
+  2. Noise Padding Control  – Standardparameter, bedeutungsloser Platzhalter
+                               exakt gleicher Zeichenlänge wie der PAL-Vektor
   3. Hyperparameter Baseline – enge τ/top_k, kein Präfix
-  4. Full Framework        – PAL-Vektor-Präfix + enge τ/top_k
+  4. Full Framework         – PAL-Vektor-Präfix + enge τ/top_k
 
 Metriken pro Bedingung: Target-Only-PPL, Distinct-2, Embedding-Similarity
 zur kategorie-spezifischen Referenzbedeutung, Länge in Wörtern.
 Statistik: Mann-Whitney-U zwischen Bedingung 4 und den Kontrollbedingungen.
+
+Wichtig zum PAL-Vektor (siehe get_pal_vector_string):
+  Die 7 Zieldimensionen liegen NICHT zwangsläufig alle in [0, 1] – manche
+  Lexika kodieren z.B. Valence (V) zentriert um 0 mit negativen Werten.
+  Deshalb wird nicht pauschal auf [0,1] geclippt, sondern mit den echten,
+  beim Training in train_pal.py beobachteten Wertebereichen pro Spalte
+  (aus dem pal_model.pkl-4-Tupel geladen).
 """
 
 import json
 import math
+import os
+import pickle
 import random
-
 import statistics
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
-import os
 import numpy as np
-
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from scipy.stats import mannwhitneyu
@@ -53,14 +58,11 @@ from sentence_transformers import SentenceTransformer, util as st_util
 # Konfiguration
 # -----------------------------------------------------------------------
 
-# Stelle sicher, dass pickle im Skript-Kopf importiert ist!
-import pickle
-
-# Diese globalen Variablen oben in der Nähe von MODEL_PATH definieren:
 PAL_MODEL_PATH = "pal_model.pkl"
 _PAL_VECTORIZER = None
 _PAL_REGRESSOR = None
-
+_PAL_TARGET_COLUMNS = None
+_PAL_CLIP_RANGES = None
 
 MODEL_PATH = "./finetuned_qwen_pal"          # Pfad zum fine-getunten Neocortex-Modell
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -131,13 +133,18 @@ def load_stimuli(path: str) -> list:
         raise ValueError(f"{path} enthält keine Stimuli.")
     return data
 
+
 def get_pal_vector_string(prompt: str) -> str:
     """
-    Lädt die reale, trainierte Multi-Output-Ridge-Regression (Estimator) 
+    Lädt die reale, trainierte Multi-Output-Ridge-Regression (Estimator)
     und berechnet den 7D-Affektvektor für den gegebenen Prompt.
+
+    Clippt jede Dimension auf ihren TATSÄCHLICHEN, beim Training beobachteten
+    Wertebereich (aus pal_model.pkl), statt pauschal auf [0, 1] - das würde
+    z.B. negative Valenz-Werte fälschlich auf 0 ("neutral") abbilden.
     """
-    global _PAL_VECTORIZER, _PAL_REGRESSOR
-    
+    global _PAL_VECTORIZER, _PAL_REGRESSOR, _PAL_TARGET_COLUMNS, _PAL_CLIP_RANGES
+
     # Lazy Loading des Modells beim ersten Aufruf
     if _PAL_VECTORIZER is None or _PAL_REGRESSOR is None:
         if not os.path.exists(PAL_MODEL_PATH):
@@ -146,13 +153,21 @@ def get_pal_vector_string(prompt: str) -> str:
                 f"um die Ridge-Regressionsmatrizen zu kalibrieren!"
             )
         with open(PAL_MODEL_PATH, "rb") as f:
-            _PAL_VECTORIZER, _PAL_REGRESSOR = pickle.load(f)
-            
-    # Extrahiere Wörter aus dem Satz (Stopwörter-Filterung analog zum Hauptskript)
+            loaded = pickle.load(f)
+
+        if not isinstance(loaded, tuple) or len(loaded) != 4:
+            raise ValueError(
+                f"'{PAL_MODEL_PATH}' hat ein veraltetes Format (Vectorizer+Modell ohne "
+                f"Spaltennamen/Wertebereiche). Bitte 'train_pal.py' (aktualisierte Version) "
+                f"erneut ausführen, um das Modell im neuen 4-Tupel-Format zu speichern."
+            )
+        _PAL_VECTORIZER, _PAL_REGRESSOR, _PAL_TARGET_COLUMNS, _PAL_CLIP_RANGES = loaded
+
+    # Extrahiere Wörter aus dem Satz
     raw_words = [w.strip(",.!?").lower() for w in prompt.split()]
     if not raw_words:
         raw_words = ["something"]
-        
+
     # Vektoren für die Wörter berechnen
     word_vectors = []
     for word in raw_words:
@@ -160,21 +175,33 @@ def get_pal_vector_string(prompt: str) -> str:
         # Wenn das Wort im TF-IDF-Raum existiert, prädizieren
         if np.sum(vec.toarray()) >= 0.15:
             pred = _PAL_REGRESSOR.predict(vec).flatten()
-            word_vectors.append(np.clip(pred, 0.0, 1.0))
-            
-    # Falls keine bekannten Wörter gefunden wurden, Curiosity-Fallback simulieren
-    if not word_vectors:
-        pal_raw_values = np.array([0.5, 0.4, 0.5, 0.15, 0.3, 0.5, 0.4])
-    else:
-        # Aggregation über Mittelwert
-        pal_raw_values = np.mean(word_vectors, axis=0)
-        
-    # Textuelle Repräsentation für den Prompt- frontier formatieren
-    return (
-        f"[PAL_7D | V:{pal_raw_values[0]:.2f} | A:{pal_raw_values[1]:.2f} | D:{pal_raw_values[2]:.2f} | "
-        f"DNG:{pal_raw_values[3]:.2f} | RES:{pal_raw_values[4]:.2f} | SOC:{pal_raw_values[5]:.2f} | GOL:{pal_raw_values[6]:.2f}]"
-    )
+            # Spaltenspezifisch clippen, mit den ECHTEN Wertebereichen aus dem Training
+            clipped = np.array([
+                np.clip(pred[i], *_PAL_CLIP_RANGES[col])
+                for i, col in enumerate(_PAL_TARGET_COLUMNS)
+            ])
+            word_vectors.append(clipped)
 
+    # Falls keine bekannten Wörter gefunden wurden, Curiosity-Fallback:
+    # Mittelpunkt jedes echten Wertebereichs statt eines hartcodierten [0,1]-Mittelwerts.
+    if not word_vectors:
+        pal_raw_values = np.array([
+            (lo + hi) / 2.0 for lo, hi in
+            (_PAL_CLIP_RANGES[col] for col in _PAL_TARGET_COLUMNS)
+        ])
+    else:
+        pal_raw_values = np.mean(word_vectors, axis=0)
+
+    # Textuelle Repräsentation des Vektors, feste Zuordnung über die gespeicherte
+    # Spaltenreihenfolge (_PAL_TARGET_COLUMNS), nicht über eine angenommene Position.
+    idx = {col: i for i, col in enumerate(_PAL_TARGET_COLUMNS)}
+    return (
+        f"[PAL_7D | V:{pal_raw_values[idx['V']]:.2f} | A:{pal_raw_values[idx['A']]:.2f} | "
+        f"D:{pal_raw_values[idx['D']]:.2f} | DNG:{pal_raw_values[idx['Danger']]:.2f} | "
+        f"RES:{pal_raw_values[idx['Resource_Value']]:.2f} | "
+        f"SOC:{pal_raw_values[idx['Social_Bond']]:.2f} | "
+        f"GOL:{pal_raw_values[idx['Goal_Proximity']]:.2f}]"
+    )
 
 
 def make_noise_padding(reference_string: str, seed: int) -> str:
@@ -291,7 +318,6 @@ def run_ablation(stimuli: list, tokenizer, model, embedder) -> AblationReport:
         prompt, category = item["prompt"], item["category"]
 
         pal_vector_str = get_pal_vector_string(prompt)
-
         noise_str = make_noise_padding(pal_vector_str, seed=i)
 
         for rep in range(N_SAMPLES_PER_CONDITION):
