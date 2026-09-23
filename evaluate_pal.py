@@ -64,7 +64,7 @@ _PAL_REGRESSOR = None
 _PAL_TARGET_COLUMNS = None
 _PAL_CLIP_RANGES = None
 
-MODEL_PATH = "./finetuned_qwen_pal"          # Pfad zum fine-getunten Neocortex-Modell
+MODEL_PATH = "./pal_trained_model"  # Exakt derselbe Pfad wie im Finetuning-Skript!
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 
