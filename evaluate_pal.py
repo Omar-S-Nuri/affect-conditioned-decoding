@@ -35,10 +35,14 @@ Statistik: Mann-Whitney-U zwischen Bedingung 4 und den Kontrollbedingungen.
 import json
 import math
 import random
-import string
+
 import statistics
 from dataclasses import dataclass, field
 from pathlib import Path
+
+
+import os
+import numpy as np
 
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -286,10 +290,7 @@ def run_ablation(stimuli: list, tokenizer, model, embedder) -> AblationReport:
     for i, item in enumerate(stimuli):
         prompt, category = item["prompt"], item["category"]
 
-        try:
-            pal_vector_str = get_pal_vector_string(prompt)
-        except NotImplementedError:
-            pal_vector_str = f"[PAL_7D_PLACEHOLDER_FOR:{prompt}]"  # nur zum Trockenlauf des Skripts
+        pal_vector_str = get_pal_vector_string(prompt)
 
         noise_str = make_noise_padding(pal_vector_str, seed=i)
 
