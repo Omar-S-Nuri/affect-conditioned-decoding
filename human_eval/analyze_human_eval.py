@@ -21,17 +21,31 @@ Aufruf:
   python analyze_human_eval.py --mapping mapping_key.csv \
       --ratings rating_sheet_rater1.csv rating_sheet_rater2.csv rating_sheet_rater3.csv
 """
-
+# human_eval/analyze_human_eval.py
 import argparse
 import csv
+import os
 import itertools
 import statistics
 from pathlib import Path
-
 from scipy.stats import wilcoxon, spearmanr
 
 CONDITIONS = ("3_hyperparameter_baseline", "4_full_framework")
 
+def safe_path(path_str: str) -> Path:
+    """🔴 FIX: Sucht intelligent im aktuellen Ordner ODER im human_eval-Unterordner"""
+    p = Path(path_str)
+    if p.exists():
+        return p
+    # Fallback 1: Falls aus dem Hauptordner aufgerufen und Datei liegt im Unterordner
+    fallback_1 = Path("human_eval") / path_str
+    if fallback_1.exists():
+        return fallback_1
+    # Fallback 2: Falls aus dem Unterordner aufgerufen und Datei liegt im Hauptordner
+    fallback_2 = Path("..") / path_str
+    if fallback_2.exists():
+        return fallback_2
+    return p
 
 def load_mapping(path: Path) -> dict:
     mapping = {}
@@ -40,9 +54,7 @@ def load_mapping(path: Path) -> dict:
             mapping[row["item_code"]] = row
     return mapping
 
-
 def load_ratings(path: Path) -> dict:
-    """ { item_code: {"coherence": float, "appropriateness": float} } """
     ratings = {}
     with path.open(encoding="utf-8") as f:
         for row in csv.DictReader(f):
@@ -50,19 +62,14 @@ def load_ratings(path: Path) -> dict:
             coh = row.get("coherence_1to5", "").strip()
             app = row.get("appropriateness_1to5", "").strip()
             if not coh or not app:
-                continue  # unvollständig ausgefüllte Zeile überspringen
+                continue
             ratings[code] = {
                 "coherence": float(coh),
                 "appropriateness": float(app),
             }
     return ratings
 
-
 def paired_scores(mapping: dict, ratings: dict, dimension: str) -> tuple:
-    """
-    Liefert zwei gleich lange Listen (cond3_scores, cond4_scores),
-    gepaart über denselben Prompt.
-    """
     by_prompt = {}
     for code, r in ratings.items():
         meta = mapping.get(code)
@@ -77,7 +84,6 @@ def paired_scores(mapping: dict, ratings: dict, dimension: str) -> tuple:
             cond4.append(vals[CONDITIONS[1]])
     return cond3, cond4
 
-
 def summarize_dimension(mapping: dict, ratings: dict, dimension: str, label: str):
     cond3, cond4 = paired_scores(mapping, ratings, dimension)
     if len(cond3) < 2:
@@ -89,8 +95,6 @@ def summarize_dimension(mapping: dict, ratings: dict, dimension: str, label: str
     print(f"    3_hyperparameter_baseline  Ø={mean3:.2f}  (n={len(cond3)})")
     print(f"    4_full_framework           Ø={mean4:.2f}  (n={len(cond4)})")
 
-    # Gepaarter, nicht-parametrischer Test: Wilcoxon signed-rank.
-    # alternative='greater': prüft, ob 4_full_framework > 3_hyperparameter_baseline
     try:
         stat, p = wilcoxon(cond4, cond3, alternative="greater")
         flag = "✅ signifikant" if p < 0.05 else "❌ nicht signifikant"
@@ -98,17 +102,11 @@ def summarize_dimension(mapping: dict, ratings: dict, dimension: str, label: str
     except ValueError as e:
         print(f"    Wilcoxon-Test nicht durchführbar: {e}")
 
-
 def inter_rater_reliability(rating_files: list, dimension: str):
-    """
-    Paarweise Spearman-Korrelation zwischen allen Ratern auf derselben
-    Dimension, nur über Items, die alle Rater bewertet haben.
-    """
     all_ratings = [load_ratings(p) for p in rating_files]
     common_codes = set.intersection(*(set(r.keys()) for r in all_ratings))
     if len(common_codes) < 3:
-        print(f"  Zu wenige gemeinsam bewertete Items ({len(common_codes)}) "
-              f"für Inter-Rater-Reliabilität.")
+        print(f"  Zu wenige gemeinsam bewertete Items ({len(common_codes)}) für Inter-Rater-Reliabilität.")
         return
 
     print(f"  Paarweise Spearman-Korrelation ({dimension}, n={len(common_codes)} gemeinsame Items):")
@@ -118,35 +116,38 @@ def inter_rater_reliability(rating_files: list, dimension: str):
         rho, p = spearmanr(vals_i, vals_j)
         print(f"    Rater {i+1} vs. Rater {j+1}: rho={rho:.3f} (p={p:.4f})")
 
-
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mapping", type=str, required=True,
-                         help="Pfad zu mapping_key.csv")
-    parser.add_argument("--ratings", type=str, nargs="+", required=True,
-                         help="Ein oder mehrere ausgefüllte rating_sheet_raterX.csv")
+    parser.add_argument("--mapping", type=str, required=True, help="Pfad zu mapping_key.csv")
+    parser.add_argument("--ratings", type=str, nargs="+", required=True, help="Ein/mehrere ausgefüllte rating_sheet_raterX.csv")
     args = parser.parse_args()
 
-    mapping = load_mapping(Path(args.mapping))
-    rating_paths = [Path(p) for p in args.ratings]
+    # 🔴 FIX: Nutze die safe_path Funktion für intelligentes Finden der Dateien
+    mapping_p = safe_path(args.mapping)
+    rating_paths = [safe_path(p) for p in args.ratings]
 
-    print(f"=== Human Evaluation: {len(rating_paths)} Rater, "
-          f"{len(mapping)} Items im Mapping ===\n")
+    if not mapping_p.exists():
+        print(f"❌ Fehler: Mapping-Datei '{args.mapping}' konnte nirgendwo gefunden werden!")
+        exit()
+        
+    for rp in rating_paths:
+        if not rp.exists():
+            print(f"❌ Fehler: Rating-Datei '{rp}' konnte nirgendwo gefunden werden!")
+            exit()
+
+    mapping = load_mapping(mapping_p)
+
+    print(f"=== Human Evaluation: {len(rating_paths)} Rater, {len(mapping)} Items im Mapping ===\n")
 
     if len(rating_paths) < 2:
-        print("⚠️  Nur ein Rater übergeben. Inter-Rater-Reliabilität kann nicht "
-              "berechnet werden – für eine belastbare 'double-blind human evaluation' "
-              "werden mindestens 2, besser 3 unabhängige Rater benötigt.\n")
+        print("⚠️  Nur ein Rater übergeben. Inter-Rater-Reliabilität kann nicht berechnet werden.\n")
 
-    # Alle Ratings zusammenführen für die Signifikanztests (jede Rater-Bewertung
-    # zählt als eigener Datenpunkt, gepaart über item->prompt->condition)
     merged = {}
     for path in rating_paths:
         r = load_ratings(path)
         for code, vals in r.items():
             merged.setdefault(code, []).append(vals)
 
-    # Für die Signifikanztests: Mittelwert über Rater pro Item verwenden
     averaged = {
         code: {
             "coherence": statistics.mean(v["coherence"] for v in vals),
@@ -162,8 +163,7 @@ def main():
     if len(rating_paths) >= 2:
         print("\n--- Inter-Rater-Reliabilität ---")
         inter_rater_reliability(rating_paths, "coherence")
-        inter_rater_reliability(rating_paths, "appropriateness")
-
+        inter_rater_reliability(mapping_paths, "appropriateness")
 
 if __name__ == "__main__":
     main()
