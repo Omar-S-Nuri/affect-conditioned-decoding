@@ -56,6 +56,10 @@ To mitigate this, our framework injects the high-density 7D affect vector prefix
 ├── Paper/
 │   ├── main.tex                      # Complete LaTeX Draft (English/German versions available)
 │   └── Affect_Conditioned_Decoding.pdf # Fully compiled scientific draft
+├── human_eval/                       # 🔴 NEU: Human Evaluation Suite
+│   ├── INSTRUCTIONS.md               # Bewertungsanleitung für Rater (Deutsch)
+│   ├── prepare_human_eval.py         # Erzeugt verblindete, randomisierte Stichproben
+│   └── analyze_human_eval.py         # Berechnet Wilcoxon-Tests & Spearman-Korrelationen
 ├── .env                              # Private API configuration (Optional Cloud Migration)
 ├── .gitignore                        # Prevents tracking of model weights, cache, and keys
 ├── LICENSE                           # MIT License
