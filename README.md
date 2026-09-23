@@ -56,7 +56,7 @@ To mitigate this, our framework injects the high-density 7D affect vector prefix
 ├── Paper/
 │   ├── main.tex                      # Complete LaTeX Draft (English/German versions available)
 │   └── Affect_Conditioned_Decoding.pdf # Fully compiled scientific draft
-├── human_eval/                       # 🔴 NEU: Human Evaluation Suite
+├── human_eval/                       # Human Evaluation Suite
 │   ├── INSTRUCTIONS.md               # Bewertungsanleitung für Rater (Deutsch)
 │   ├── prepare_human_eval.py         # Erzeugt verblindete, randomisierte Stichproben
 │   └── analyze_human_eval.py         # Berechnet Wilcoxon-Tests & Spearman-Korrelationen
@@ -66,12 +66,14 @@ To mitigate this, our framework injects the high-density 7D affect vector prefix
 ├── README.md                         # Documentation
 ├── active_curiosity.py               # Handles unseen morphology via character fallback
 ├── chat_with_pal_final.py            # Live interactive loop with dynamic metabolic costs
+├── eval_stimuli.json                 # Balanced 60-prompt validation dataset (N=30 threatening / N=30 benign)
 ├── evaluate_pal.py                   # Rigorous 4-Way Semantic Specificity Ablation Matrix
 ├── expand_lexicon.py                 # Local vector-expansion pipeline via Ollama (Llama 3.1)
 ├── finetune_llm_verhaltensvielfalt.py# Fine-tunes the Qwen cortical weight distributions
 ├── hippocampus_memory.py             # Decay-based affective latency buffering module
 ├── homeostasis_somatic.py            # Computational resource depletion matrix
 ├── merge_lexicons.py                 # Merges raw psycholinguistic source datasets
+├── nrc_final_evolutionary.txt        # Fully expanded evolutionary lexicon (54,745 curated words)
 ├── requirements.txt                  # System dependencies
 ├── test_model.py                     # Static single-stimulus diagnostic validator
 └── train_pal.py                      # Multi-output Ridge model matrix fitter
@@ -132,7 +134,7 @@ python evaluate_pal.py
 
 ## 🧪 4-Way Semantic Specificity Ablation Protocol
 
-To eliminate mathematical sampling artifacts and isolate the true causal effect of the 7D affect vector, `evaluate_pal.py` automatically benchmarks **four distinct experimental paths** using **Target-Only Perplexity** (masking out prompt tokens via `ignore_index=-100`) and automated **Semantic Embedding Similarity** via `all-MiniLM-L6-v2`:
+To eliminate mathematical sampling artifacts and isolate the true causal effect of the 7D affect vector, `evaluate_pal.py` automatically benchmarks **four distinct experimental paths** across **60 highly diverse, balanced scenarios** (totaling 240 evaluation points) using **Target-Only Perplexity**...
 
 1. **Condition 1 (Absolute Control):** Baseline model with default sampling parameters (τ=0.75, k=50) without prefix strings.
 2. **Condition 2 (Noise Padding Control):** Baseline model with default parameters prepended by a meaningless, affect-free placeholder prefix matching the exact character length of the 7D vector (generated utilizing high-frequency neutral filler tokens).
