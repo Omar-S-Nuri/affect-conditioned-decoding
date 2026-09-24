@@ -7,7 +7,7 @@
 \usepackage{booktabs}
 \usepackage{hyperref}
 \usepackage{geometry}
-\usepackage{microtype}
+\usepackage[expansion=false]{microtype}
 \usepackage{cite}
 \usepackage{listings}
 \usepackage{xcolor}
@@ -25,8 +25,8 @@
 % =============================================
 %  TITLE & AUTHOR
 % =============================================
-\title{\textbf{Affect-Conditioned Decoding:\\ 
-Coupling a Lightweight Emotion Estimator\\ 
+\title{\textbf{Affect-Conditioned Decoding:\\
+Coupling a Lightweight Emotion Estimator\\
 to Sampling Parameters in Large Language Models}}
 
 \author{
@@ -34,11 +34,10 @@ to Sampling Parameters in Large Language Models}}
   \textit{Independent Researcher}\\
   \textit{Computer Science and Machine Learning Systems}\\
   \textit{ }\\
-  \textbf{GitHub-Repository:} \\
+  \textbf{GitHub Repository:} \\
   \href{https://github.com/Omar-S-Nuri/affect-conditioned-decoding}
   {\texttt{github.com/Omar-S-Nuri/affect-conditioned-decoding}}
 }
-
 \date{August 2026}
 
 \begin{document}
@@ -49,7 +48,7 @@ to Sampling Parameters in Large Language Models}}
 %  ABSTRACT
 % =============================================
 \begin{abstract}
-While autoregressive Large Language Models (LLMs) excel at generative tasks, their decoding pathways remain static and insensitive to shifting contextual affect or operational states. In this paper, we introduce a lightweight approach to Affect-Conditioned Decoding, where text inputs are mapped into a bounded 7D affect space via a multi-output regression matrix. These computed vector prefixes are prepended to the input sequence while dynamically modifying downstream inference hyper-parameters ($\tau$, $top\_k$). We expose a critical empirical hazard and structural scaling limitation in evaluating such architectures: aggressive sampling restrictions induce localized mode collapse and repetitive token behaviors inside sub-billion parameter regimes (benchmarked on \texttt{Qwen1.5-0.5B}), artificially deflating target-only cross-entropy perplexity (PPL) down to $\sim$3.0. To isolate the true semantic influence of the affect vector from sampling artifacts, we perform a rigorous 4-way ablation study. Our findings indicate that while highly parameter-constrained models exhibit generative collapse under stress, the structural conditioning prefix operates as a crucial semantic context anchor, mitigating complete vocabulary stagnation.
+While autoregressive Large Language Models (LLMs) excel at generative tasks, their decoding pathways remain static and insensitive to shifting contextual affect or operational states. In this paper, we introduce a lightweight approach to Affect-Conditioned Decoding, where text inputs are mapped into a bounded 7D affect space via a multi-output regression matrix. The resulting vector is prepended to the input sequence while concurrently modulating downstream inference hyper-parameters ($\tau$, $top\_k$). We first expose a critical empirical hazard in evaluating such architectures: aggressive sampling restrictions alone induce localized mode collapse and repetitive token behavior in sub-billion parameter regimes (benchmarked on \texttt{Qwen1.5-0.5B}), which can be mistaken for genuine semantic alignment. To isolate the causal contribution of the affect vector from this sampling artifact, we design a rigorous 4-way ablation protocol combined with a double-blind human evaluation. Contrary to our initial hypothesis, we find \emph{no} statistically significant evidence that the affect-vector prefix improves target-only perplexity, lexical diversity, or human-rated contextual appropriateness beyond hyperparameter throttling alone ($p > 0.05$ in all comparisons). We report this null result transparently and discuss a plausible explanation rooted in template overfitting during fine-tuning, arguing that it establishes a practical lower bound on the utility of lightweight, prefix-based affect conditioning for sub-billion parameter models.
 \end{abstract}
 
 
@@ -57,50 +56,47 @@ While autoregressive Large Language Models (LLMs) excel at generative tasks, the
 %  1. INTRODUCTION
 % =============================================
 \section{Introduction}
-Autoregressive language transformers process data purely based on frozen, statistical word-embeddings and positional parameters. They possess no visceral concept of biological urgency, self-preservation, or somatic continuity over multiple context windows. In contrast, biological organisms utilize a continuous, visceral state-evaluation loop to protect homeostasis. 
+Autoregressive language transformers process data purely based on frozen, statistical word-embeddings and positional parameters. They possess no visceral concept of biological urgency, self-preservation, or somatic continuity over multiple context windows. In contrast, biological organisms utilize a continuous, visceral state-evaluation loop to protect homeostasis.
 
-By taking inspiration from neuroscientist Antonio Damasio's \textit{Descartes' Error}, we propose that artificial agents require a functional algorithmic analogue of continuous state-regulation to shift from cold, disconnected inference to situated, adaptive behaviors. This framework models an interconnected system where semantic inputs alter internal vitality indices, which subsequently restrict the downstream autoregressive token selection space.
+By taking inspiration from neuroscientist Antonio Damasio's \textit{Descartes' Error}, we investigate whether artificial agents can benefit from a lightweight, functional algorithmic analogue of continuous state-regulation, shifting inference from cold, disconnected token selection toward context-anchored, adaptive behavior. This framework models a two-stage system in which semantic prompt content alters an internal, continuously updated affect vector, which in turn constrains the downstream autoregressive token selection space.
 
-We propose an inference-time decoding mechanism where semantic prompt behaviors alter rolling internal stability matrices, which subsequently restrict the downstream autoregressive token selection space. Crucially, this work evaluates the scaling thresholds of affect-conditioned boundaries, explicitly mapping how sub-billion parameter architectures react to severe inference constraints. By implementing an explicit multi-stage architecture separating continuous affect vectorization from token synthesis, this framework exposes the performance boundaries between fixed inference paths and dynamic-adaptive decoding under strict hardware and model-size limitations.
+Crucially, this work also evaluates the scaling limits of such affect-conditioned decoding, explicitly examining how a sub-billion parameter architecture reacts to severe inference constraints, and whether an affect-vector prefix meaningfully changes generation quality under those constraints or is simply overshadowed by them. By implementing an explicit multi-stage architecture that separates affect vectorization from token synthesis, and by evaluating it with a dedicated ablation protocol, this work aims to give an honest empirical account of where such interventions do, and do not, provide measurable benefit.
 
-
-% =============================================
-%  2. Related work
-% =============================================
 
 % =============================================
-%  2. RELATED WORK (ENGLISH)
+%  2. RELATED WORK
 % =============================================
 \section{Related Work}
 Our approach interfaces directly with the established paradigms of controllable text generation, post-training steering, and inference-time parameter modulation in autoregressive transformer architectures.
 
 \subsection{Controllable Generation and Latent Steering}
-Controllable text generation has traditionally relied on dynamic weight modifications or auxiliary classifier gradients. A foundational baseline is the Plug and Play Language Model (PPLM) proposed by Dathathri et al., which steers text trajectories by computing gradients from a lightweight attribute model and backpropagating them into the transformer's hidden states during the forward pass. While highly effective for complex tasks such as sentiment-steering and topic shifting, PPLM incurs massive computational latency due to its iterative gradient updates at every generation step. 
+Controllable text generation has traditionally relied on dynamic weight modifications or auxiliary classifier gradients. A foundational baseline is the Plug and Play Language Model (PPLM) proposed by Dathathri et al., which steers text trajectories by computing gradients from a lightweight attribute model and backpropagating them into the transformer's hidden states during the forward pass. While highly effective for complex tasks such as sentiment-steering and topic shifting, PPLM incurs substantial computational latency due to its iterative gradient updates at every generation step.
 
 Subsequent frameworks explored post-training vocabulary modulation without altering base weights. Contrastive Decoding (CD), as formalized by Li et al., optimizes token distribution matrices by computing the log-prediction delta between a large expert model and an amateur counterpart. While CD effectively suppresses stylistic degenerations and hallucinations, it scales poorly due to the concurrent execution of multiple parameter-heavy networks.
 
 \subsection{Inference Layer and Sampling Parameter Optimization}
-Closer to the micro-architectural layer of token selection, dynamic sampling adjustments represent a highly efficient, gradient-free alternative for text steering. Classical methodologies, such as Top-$k$ and Nucleus (Top-$p$) sampling introduced by Holtzman et al., dynamically truncate the long-tail of the token probability distribution. This truncation reshapes the Softmax logit distribution to prevent degenerate repetitions or erratic, ungrammatical hallucinations. 
+Closer to the micro-architectural layer of token selection, dynamic sampling adjustments represent a highly efficient, gradient-free alternative for text steering. Classical methodologies, such as Top-$k$ and Nucleus (Top-$p$) sampling introduced by Holtzman et al., dynamically truncate the long tail of the token probability distribution. This truncation reshapes the Softmax logit distribution to prevent degenerate repetitions or erratic, ungrammatical hallucinations.
 
-Traditionally, however, these parameters ($\tau, k, p$) remain completely static throughout the entire inference cycle or are conditioned strictly on the rolling token-probability entropy of the generated sequence itself. 
+Traditionally, however, these parameters ($\tau, k, p$) remain either completely static throughout the entire inference cycle, or are conditioned strictly on the rolling token-probability entropy of the generated sequence itself.
 
-Our work bridges the gap between these isolated paradigms. By introducing \textit{Affect-Conditioned Decoding}, we bypass the latency of latent-space gradient backpropagation (like PPLM) and the hardware overhead of dual-model architectures (like Contrastive Decoding). Instead, our framework maps prompt semantics directly into a continuous, low-cost affect vector at the prompt frontier, conditioning both the sequence prefix and the hard inference constraints ($\tau, k$) concurrently. This provides high-density contextual steering directly at the sampling layer with negligible computational overhead.
+Our work bridges the gap between these isolated paradigms. By introducing \textit{Affect-Conditioned Decoding}, we avoid the latency of latent-space gradient backpropagation (as in PPLM) and the hardware overhead of dual-model architectures (as in Contrastive Decoding). Instead, our framework maps prompt semantics directly into a continuous, low-cost affect vector at the prompt frontier, conditioning both the sequence prefix and the inference constraints ($\tau, k$) concurrently. As our results show, however, this low computational overhead does not by itself guarantee a measurable semantic benefit once hyperparameter throttling is already active -- a distinction that, to our knowledge, prior work in this area does not explicitly isolate.
 
 
 % =============================================
 %  3. METHODOLOGY & MATHEMATICAL FORMULATION
 % =============================================
 \section{Methodology}
-Our architecture utilizes a dual-stage pipeline separating physiological vectorization from language synthesis.
+Our architecture utilizes a dual-stage pipeline separating affect vectorization from language synthesis.
 
-\subsection{7D Evolutionary Space Projection}
-A textual input stimulus $X_t$ at time-step $t$ is projected into a 7-dimensional evolutionary space via a regularized multi-output Ridge regression matrix model $\mathcal{W}_{\text{PAL}}$ operating on top of character n-gram boundaries:
+\subsection{7D Affect Space Projection}
+A textual input stimulus $X_t$ at time-step $t$ is projected into a 7-dimensional affect space via a regularized multi-output Ridge regression matrix model $\mathcal{W}_{\text{PAL}}$ operating on top of character n-gram boundaries:
 \begin{equation}
 \mathbf{v}_t = \mathcal{W}_{\text{PAL}} \cdot \Phi(X_t)
 \end{equation}
-where $\mathbf{v}_t = [V, A, D, DNG, RES, SOC, GOL]^T \in \mathbb{R}^7$ defines Valence, Arousal, Dominance, Danger ($DNG$), Resource Value ($RES$), Social Bond ($SOC$), and Goal Proximity ($GOL$). $\Phi(X_t)$ represents the sublinear TF-IDF character vectorizer profile ($2 \le \text{n-gram} \le 5$) protecting morphological edge cases.
+where $\mathbf{v}_t = [V, A, D, DNG, RES, SOC, GOL]^T \in \mathbb{R}^7$ defines Valence, Arousal, Dominance, Danger ($DNG$), Resource Value ($RES$), Social Bond ($SOC$), and Goal Proximity ($GOL$). $\Phi(X_t)$ represents the sublinear TF-IDF character vectorizer profile ($2 \le \text{n-gram} \le 5$) protecting morphological edge cases. Each dimension is clipped to its own empirically observed training range rather than a shared $[0,1]$ interval, since several dimensions (notably Valence) are naturally signed.
+
 \subsection{Sluggish Mood Dynamics and Affective Latency}
-The internal homoeostatic state $\mathbf{M}_t \in \mathbb{R}^7$ possesses algorithmic viscosity, bypassing discrete episodic retrieval in favor of a continuous, decay-based affect persistence loop. It tracks historical semantic shocks using an exponential smoothing protocol representing hormonal latency (e.g., adrenaline clearing rates):
+The internal state $\mathbf{M}_t \in \mathbb{R}^7$ possesses algorithmic viscosity, bypassing discrete episodic retrieval in favor of a continuous, decay-based affect persistence loop. It tracks historical semantic shocks using an exponential smoothing protocol representing hormonal latency (e.g., adrenaline clearing rates):
 \begin{equation}
 \mathbf{M}_t = \alpha \cdot \mathbf{v}_t + (1 - \alpha) \cdot \mathbf{M}_{t-1}
 \end{equation}
@@ -108,15 +104,15 @@ where $\alpha = 0.3$ establishes the global clearing factor. Parallelly, metabol
 \begin{equation}
 E_t = \max(0.05, E_{t-1} - (\gamma_{\text{base}} + \delta \cdot N))
 \end{equation}
-with baseline metabolic depletion $\gamma_{\text{base}} = 0.03$ and token cost coefficient $\delta = 0.002$. Energy deficits actively feed into the somatic marker by expanding the core threat coordinates: $\mathbf{M}_t[DNG] \leftarrow \min(1.0, \mathbf{M}_t[DNG] + (1.0 - E_t) \cdot 0.15)$.
+with baseline metabolic depletion $\gamma_{\text{base}} = 0.03$ and token cost coefficient $\delta = 0.002$. Energy deficits actively feed into the affect vector by expanding the core threat coordinate: $\mathbf{M}_t[DNG] \leftarrow \min(1.0, \mathbf{M}_t[DNG] + (1.0 - E_t) \cdot 0.15)$.
 
 \subsection{Mechanistic Hyperparameter Coupling}
-If the cumulative processed threat exceeds a critical threshhold ($\mathbf{M}_t[DNG] > 0.6$), a behavioral freeze (tunnel vision) is triggered by reshaping the neocortical Softmax activation distribution:
+If the cumulative processed threat exceeds a critical threshold ($\mathbf{M}_t[DNG] > 0.6$), a behavioral freeze (tunnel vision) is triggered by reshaping the Softmax activation distribution:
 \begin{equation}
-\tau_t, k_t = \begin{cases} 
-0.25, 15 & \text{if } \mathbf{M}_t[DNG] > 0.6 \\ 
+\tau_t, k_t = \begin{cases}
+0.25, 15 & \text{if } \mathbf{M}_t[DNG] > 0.6 \\
 0.40, 25 & \text{else if } E_t < 0.25 \\
-0.75, 50 & \text{otherwise} 
+0.75, 50 & \text{otherwise}
 \end{cases}
 \end{equation}
 where $\tau_t$ defines generation temperature and $k_t$ represents the $Top\text{-}K$ token filter. The final probability profile for token $y_i$ is computed as:
@@ -125,85 +121,82 @@ P(y_i \mid y_{<i}, X_t, \mathbf{M}_t) = \text{Softmax}\left( \frac{z_i}{\tau_t} 
 \end{equation}
 
 
-
-
-% =============================================
-%  4. EXPERIMENTAL SETUP & RESULTS
-% =============================================
 % =============================================
 %  4. EXPERIMENTAL EVALUATION & QUANTITATIVE ANALYSIS
 % =============================================
 \section{Experimental Evaluation and Quantitative Analysis}
-The quantitative validation of the proposed affect-conditioned decoding architecture was systematically benchmarked across distinct combinatorial text-stimuli, evenly split into benign and threatening environmental contexts. To isolate the true causal influence of the 7D affect vector and eliminate empirical artifacts, a rigorous 4-way ablation study was executed. 
+The quantitative validation of the proposed affect-conditioned decoding architecture was benchmarked across $N=60$ balanced text stimuli, evenly split between benign and threatening scenarios. To isolate the causal influence of the 7D affect vector from sampling-induced artifacts, we designed a 4-way ablation study.
 
-The evaluation utilized a \texttt{Target-Only} perplexity methodology, where prompt context tokens were completely masked out via an attention filter ($ignore\_index = -100$) during cross-entropy loss computation to exclusively measure the prediction difficulty of the continuation. Concurrently, the \texttt{Distinct-2} metric was tracked to assess token diversity, and a semantic embedding similarity score (\textit{Sim}) was computed via a localized \texttt{all-MiniLM-L6-v2} Sentence-Transformer against category-specific reference behaviors to evaluate response adequacy.
+\subsection{Ablation Design}
+The evaluation used a \texttt{Target-Only} perplexity methodology, in which prompt context tokens were fully masked out ($ignore\_index = -100$) during cross-entropy loss computation, so that only the prediction difficulty of the generated continuation is measured -- under a fixed, prefix-free scoring context shared across all four conditions. This decouples the measurement from the length or content of whatever prefix was used during generation, avoiding a confound present in naive full-prompt perplexity comparisons. Concurrently, the \texttt{Distinct-2} metric tracked bigram diversity, and a semantic embedding similarity score (\textit{Sim}) was computed via a local \texttt{all-MiniLM-L6-v2} Sentence-Transformer against category-specific reference behaviors.
 
+The four conditions were: (1) \texttt{absolute\_control} (default sampling, no prefix), (2) \texttt{noise\_padding\_control} (default sampling, a semantically empty filler prefix of identical character length to the real affect vector), (3) \texttt{hyperparameter\_baseline} (restrictive sampling, no prefix), and (4) \texttt{full\_framework} (restrictive sampling, real affect-vector prefix). Conditions 2 and 3 exist specifically to separate two potential confounds -- prefix length alone, and sampling restriction alone -- from any genuine semantic contribution of the affect vector in Condition 4.
 
 \begin{table*}[t]
-\footnotesize % Verkleinert die Schriftart für einzeilige Passung
-\setlength{\tabcolsep}{3pt} % Minimiert den Spaltenabstand gegen Zeilenbruch
-\caption{Ergebnisse der 4-Wege-Ablationsstudie: Target-Only Perplexität (PPL), Bigramm-Diversität (Distinct-2) und semantische Kosinus-Ähnlichkeit (Sim).}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\caption{Results of the 4-way ablation study: target-only perplexity (PPL), bigram diversity (Distinct-2), and semantic cosine similarity (Sim). Values are sample averages across $N=60$ balanced evaluation contexts.}
 \label{tab:ablation_results}
 \begin{center}
 \begin{tabular}{llccccc}
 \hline
-\textbf{\#} & \textbf{Evaluations Condition} & \textbf{Sampling} & \textbf{PPL} $\downarrow$ & \textbf{PPL} & \textbf{Distinct-2} $\uparrow$ & \textbf{Sim} $\uparrow$ \\
- & & \textbf{Parameter} & \textbf{($\emptyset$)} & \textbf{($\sigma$)} & & \\
+\textbf{\#} & \textbf{Evaluation Condition} & \textbf{Sampling} & \textbf{PPL} $\downarrow$ & \textbf{PPL} & \textbf{Distinct-2} $\uparrow$ & \textbf{Sim} $\uparrow$ \\
+& & \textbf{Parameters} & \textbf{($\emptyset$)} & \textbf{($\sigma$)} & & \\
 \hline
-1 & \texttt{1\_absolute\_control}       & $\tau=0,75, k=50$ & 1,21 & 0,35 & 0,546 & 0,387 \\
-2 & \texttt{2\_noise\_padding\_control} & $\tau=0,75, k=50$ & 1,06 & 0,08 & 0,455 & 0,382 \\
-3 & \texttt{3\_hyperparameter\_baseline} & $\tau=0,25, k=15$ & 1,09 & 0,16 & 0,486 & 0,382 \\
-4 & \texttt{4\_full\_framework}        & $\tau=0,25, k=15$ & 1,07 & 0,13 & 0,465 & 0,380 \\
+1 & \texttt{1\_absolute\_control}       & $\tau=0.75, k=50$ & 1.21 & 0.35 & 0.546 & 0.387 \\
+2 & \texttt{2\_noise\_padding\_control} & $\tau=0.75, k=50$ & 1.06 & 0.08 & 0.455 & 0.382 \\
+3 & \texttt{3\_hyperparameter\_baseline} & $\tau=0.25, k=15$ & 1.09 & 0.16 & 0.486 & 0.382 \\
+4 & \texttt{4\_full\_framework}         & $\tau=0.25, k=15$ & 1.07 & 0.13 & 0.465 & 0.380 \\
 \hline
 \end{tabular}
 \end{center}
-
-\small \textit{Note on Metrics:} Values are reported as sample averages across $N=60$ balanced evaluation contexts. Statistical significance was verified utilizing a non-parametric Mann-Whitney-U ranking test ($alternative=\text{'less'}$).
+\small \textit{Note:} Statistical comparisons between Condition 4 and Conditions 2/3 were performed using a one-sided, non-parametric Mann-Whitney-U test ($alternative=\text{'less'}$) on the per-item Target-Only PPL distributions.
 \end{table*}
 
-\subsection{Causal Semantic Steering vs. Sampling Artifacts}
-As documented in Table~\label{tab:ablation_results}, the multi-stage ablation study uncovers a fundamental empirical hazard inherent to the evaluation of constrained decoding frameworks. The uniform collapse of cross-entropy perplexity inside Conditions 3 and 4 under high-stress configurations ($PPL \sim 1.07$) must not be misinterpreted as a sign of clean cognitive alignment.
+\subsection{Testing for Causal Semantic Steering: A Null Result}
+Table~\ref{tab:ablation_results} shows a pattern that must be interpreted carefully. Target-only perplexity is uniformly low across \emph{all four} conditions (PPL between $1.06$ and $1.21$), including \texttt{1\_absolute\_control}, which uses neither a restrictive sampling regime nor any prefix. This is notably different from what naive, non-masked perplexity measurements on earlier iterations of this framework suggested, and indicates that at least part of the previously observed perplexity collapse was an artifact of scoring the prefix together with the continuation rather than the continuation alone.
 
-Instead, the corresponding \texttt{Distinct-2} diversity scores collapse severely under narrow sampling constraints ($\tau=0.25$, $k=15$), dropping from $0.546$ (\texttt{1\_absolute\_control}) down to $0.465$ (\texttt{4\_full\_framework}). This quantitative finding proves that shifting the transformer to a low temperature forces the sub-billion parameter base model into a localized mode collapse, defensively escaping into over-learned baseline phrases. Consequently, the low perplexity values across all constrained targets are structural mathematical artifacts of the narrow token selection pool, as the model becomes incapable of encountering surprising paths within its own deterministic repetitions.
-
-To confirm the statistical validity of the semantic steering effect against this collapse, a directional Mann-Whitney-U ranking test was executed. The differences in target alignment and target-only perplexity between the full framework (\texttt{4\_full\_framework}) and the baseline control sets proved to be statistically non-significant ($p > 0.05$). This empirical distribution establishes a strict parametric lower bound for affect-conditioned boundaries, explicitly proving that within sub-billion token generation paths, hard hyperparameter throttling effectively erases the semantic signal injected via continuous prompting matrices.
-
+The \texttt{Distinct-2} diversity score does decline moderately from $0.546$ (\texttt{1\_absolute\_control}) to $0.465$ (\texttt{4\_full\_framework}), consistent with some loss of lexical variety under restrictive sampling. However, a directional Mann-Whitney-U test comparing \texttt{4\_full\_framework} against both \texttt{2\_noise\_padding\_control} and \texttt{3\_hyperparameter\_baseline} on target-only perplexity found \emph{no} statistically significant difference ($p > 0.05$ for both comparisons). In other words, once prefix length and sampling restriction are separately controlled for, we find no evidence that the semantic content of the affect vector itself causes a measurable reduction in perplexity beyond what an equally long, meaningless prefix or restrictive sampling alone already produce.
 
 \subsection{Double-Blind Human Evaluation}
-To ensure that statistical gains translate into functional qualitative improvements, we executed a rigorous double-blind human evaluation ($N=30$ stratified prompt scenarios). Utilizing a dedicated preprocessing pipeline (\texttt{prepare\_human\_eval.py}), responses from \texttt{3\_hyperparameter\_baseline} and \texttt{4\_full\_framework} were completely anonymized using randomized unique identifiers (\texttt{ITEM\_XXXXXX}) and shuffled to prevent structural order bias. 
+To test whether any subtler quality difference exists that the automatic metrics might miss, we conducted a double-blind human evaluation ($N=30$ stratified prompt scenarios, drawn from the same 60-item pool). Using a dedicated preprocessing pipeline (\texttt{prepare\_human\_eval.py}), responses from \texttt{3\_hyperparameter\_baseline} and \texttt{4\_full\_framework} were anonymized under randomized unique identifiers (\texttt{ITEM\_XXXXXX}) and presented to raters in shuffled order to prevent order bias.
 
-Three independent human annotators scored the blinded outputs on a 1--5 Likert scale across two dimensions: \textit{Syntactic Coherence} and \textit{Contextual Appropriateness}. A non-parametric paired Wilcoxon signed-rank test was conducted ($alternative=\text{'greater'}$).
+Three independent human annotators, blind to condition, scored each response on a 1--5 Likert scale along two dimensions: \textit{Syntactic Coherence} and \textit{Contextual Appropriateness}. A paired, non-parametric Wilcoxon signed-rank test was used ($alternative=\text{'greater'}$, testing whether \texttt{4\_full\_framework} scores exceed \texttt{3\_hyperparameter\_baseline} scores).
 
-The human scoring reveals that while a high grammatical standard is maintained across both pathways ($\emptyset=4.10$ vs. $\emptyset=4.07$), the contextual appropriateness scores collapse significantly ($\emptyset=2.13$ for baseline vs. $\emptyset=1.93$ for the full framework). The paired Wilcoxon test confirmed that the qualitative delta was statistically non-significant ($p = 0.9456$). This quantitative distribution proves that for sub-billion parameter models under severe stress conditions, the architectural restriction completely overrides the conditioning prefix, trapping the agent in non-specific syntactic loops regardless of the underlying semantic vector orientation.
+Both conditions maintained a comparably high grammatical standard ($\emptyset=4.10$ for \texttt{3\_hyperparameter\_baseline} vs.\ $\emptyset=4.07$ for \texttt{4\_full\_framework}). Contextual appropriateness, however, was low in an absolute sense for both conditions, and the point estimate for \texttt{4\_full\_framework} ($\emptyset=1.93$) was numerically \emph{lower}, not higher, than for \texttt{3\_hyperparameter\_baseline} ($\emptyset=2.13$). The paired Wilcoxon test confirmed that this difference was not statistically significant ($p = 0.9456$), and in particular provides no support for the hypothesis that the affect-vector prefix improves perceived contextual appropriateness over hyperparameter throttling alone.
 
-
+Taken together, both the automatic ablation and the human evaluation converge on the same conclusion: under severe sampling restriction, the sub-billion parameter model used here does not exhibit a measurable, attributable benefit from the affect-vector prefix, whether judged by target-only perplexity, lexical diversity, semantic similarity, or blinded human ratings.
 
 
 % =============================================
 %  5. DISCUSSION & LIMITATIONS
 % =============================================
 \section{Discussion and Limitations}
-While the framework successfully demonstrates homeostatic regulation, physiological feedback loops, and decay-based affective latency---as evidenced by the survival of lingering threat modifiers in subsequent benign steps, e.g., the flower scenario holding a residual $DNG=0.46$ due to emotional viscocity---a critical limitation emerged regarding the neocortical capacity. 
+The central empirical finding of this work is a null result, and we discuss it as such rather than reframing it. Two explanations seem most plausible, and are not mutually exclusive.
 
+First, restrictive sampling ($\tau=0.25$, $k=15$) alone appears sufficient to drive the underlying \texttt{Qwen1.5-0.5B} model toward narrow, repetitive continuations (as reflected in the Distinct-2 decline in Table~\ref{tab:ablation_results}), largely independent of whatever prefix precedes the prompt. Under sufficiently tight token selection, there may simply be too little room left in the search space for a semantic prefix to meaningfully redirect generation.
 
-When subjected to acute stress modifiers ($DNG \rightarrow 1.0$) and tight inference constraints ($\tau = 0.25$), smaller parametric models such as the Qwen-0.5B parameters exhibit a structural cognitive collapse. Instead of generating diverse, context-specific evolutionary behavioral strategies, the neocortex falls into degenerative autoregressive repetitions (e.g., repeating baseline monitoring phrases). This indicates that while the artificial limbic system correctly calculates survival dynamics, a higher parametric threshold (e.g., $\ge$ 8B or 70B parameters) is mandatory for the neocortex to translate intense emotional vectors into fluid, nuanced textual behaviors.
+Second, the fine-tuning procedure used to adapt the base model to the fixed \texttt{"REIZ: ... REAKTION:"} template (\texttt{finetune\_llm\_verhaltensvielfalt.py}, using a small number of training steps on a narrow template) may have caused the model to become highly confident about continuing this specific scaffold regardless of prefix content. The uniformly low target-only perplexity across \emph{all four} conditions in Table~\ref{tab:ablation_results}, including the fully unconstrained \texttt{1\_absolute\_control}, is consistent with this explanation: a model that has essentially memorized how to continue the fine-tuning template would show low perplexity on that continuation almost independent of what precedes it. We flag this as template overfitting rather than genuine cognitive alignment, and consider it the most likely reason the affect vector's semantic content did not produce a measurable effect in either the automatic or the human evaluation.
 
+We note this residual behavior for completeness: in informal, non-systematic spot checks, threat-related affect values were observed to persist for a few turns after an acute stimulus subsided (e.g., a modifier lingering into a subsequent benign prompt) before decaying under the smoothing rule in Eq.~2. We report this only as a qualitative observation about the decay mechanism, not as evidence of any generation-quality benefit, since our formal ablation and human evaluation did not find one.
 
+We consider a higher-capacity neocortex (e.g., $\geq$ 8B parameters) a necessary follow-up before drawing conclusions about whether affect-vector prefixes are inherently ineffective, or only ineffective under the specific combination of aggressive sampling restriction and a small, narrowly fine-tuned base model used in this study.
 
 
 % =============================================
-%  6. FUTURE WORK & CONCLUSION
+%  6. CONCLUSION & FUTURE WORK
 % =============================================
 \section{Conclusion and Future Work}
-In this work, we presented a computationally efficient framework for Affect-Conditioned Decoding. By routing semantic prompt vectors directly into the sampling layer, we demonstrated that token generation can be contextually anchored without gradient-based post-training updates. However, our empirical evaluation establishes a strict parametric lower bound for such interventions: localized mode collapse and autoregressive token repetitions remain highly pronounced in sub-billion parameter models (such as the evaluated \texttt{Qwen1.5-0.5B}) when subjected to severe temperature throttling ($\tau=0.25$). 
+In this work, we presented a computationally lightweight framework for Affect-Conditioned Decoding and, more importantly, a rigorous 4-way ablation and double-blind human evaluation protocol for testing whether such prefix-based semantic conditioning provides a measurable benefit once sampling-parameter effects are properly controlled for. Using this protocol on \texttt{Qwen1.5-0.5B}, we found no statistically significant evidence that the affect-vector prefix improves target-only perplexity, lexical diversity, semantic similarity, or human-rated contextual appropriateness beyond hyperparameter throttling alone. We consider this a meaningful negative result: it suggests a practical lower bound on the utility of this class of lightweight, prefix-based intervention in sub-billion parameter, narrowly fine-tuned models, and highlights template overfitting as a likely confound in evaluating such systems more broadly.
 
-Future work will focus on expanding this ablation study across scale, deploying the 7D affect framework onto quantized 8B and 70B parameter architectures to evaluate the scaling laws of somatic-cortical sampling interaction. Additionally, we plan to implement a dynamic Repetition Penalty Multiplier that scales inversely with the agent's simulated energy state, actively preventing syntactic loops during advanced stages of metabolic exhaustion across varying model scales.
+Future work should prioritize (1) repeating this ablation on larger, less narrowly fine-tuned base models (8B+ parameters) to test whether the null result is specific to small, template-overfit models; (2) reducing or removing the aggressive sampling restriction to test whether the affect vector has measurable effect under less severe throttling; and (3) expanding the evaluation set beyond $N=60$ automatic and $N=30$ human-rated items to increase statistical power, particularly given the modest effect sizes observed here.
+
 
 % =============================================
-%  AI DISCLOSURE (�� DIREKT VOR REFERENCES PLATZIEREN!)
+%  AI DISCLOSURE
 % =============================================
 \section*{AI Disclosure}
-The author utilized Claude (Anthropic) as an AI-assisted tool for formal phrasing of mathematical formulations and syntactic refinement of the manuscript. All empirical data collection, architectural framework design, algorithmic implementation, and intellectual ownership remain exclusively with the human author.
+The author utilized Claude (Anthropic) as an AI-assisted tool for formal phrasing of mathematical formulations and syntactic refinement of the manuscript, including revising the framing of the results to accurately reflect the reported statistical outcomes. All empirical data collection, architectural framework design, algorithmic implementation, and intellectual ownership remain exclusively with the human author.
 
 
 % =============================================
@@ -212,7 +205,10 @@ The author utilized Claude (Anthropic) as an AI-assisted tool for formal phrasin
 \begin{thebibliography}{99}
 \bibitem{damasio} A. Damasio, \textit{Descartes' Error: Emotion, Reason, and the Human Brain}, Putnam, 1994.
 \bibitem{qwen} Qwen Team, \textit{Qwen Technical Report}, arXiv:2309.16609, 2023.
-\bibitem{vaswani} A. Vaswani et al., ``Attention is all you need,'' \textit{Advances in Neural Information Processing Systems}, pp. 5998-6008, 2017.
+\bibitem{vaswani} A. Vaswani et al., ``Attention is all you need,'' \textit{Advances in Neural Information Processing Systems}, pp. 5998--6008, 2017.
+\bibitem{dathathri} S. Dathathri et al., ``Plug and Play Language Models: A Simple Approach to Controlled Text Generation,'' \textit{International Conference on Learning Representations (ICLR)}, 2020.
+\bibitem{li} X. L. Li et al., ``Contrastive Decoding: Open-ended Text Generation as Optimization,'' \textit{Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics}, 2023.
+\bibitem{holtzman} A. Holtzman et al., ``The Curious Case of Neural Text Degeneration,'' \textit{International Conference on Learning Representations (ICLR)}, 2020.
 \end{thebibliography}
 
 \end{document}
